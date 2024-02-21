@@ -47,6 +47,15 @@ func main() {
 		if c.UserId == "" {
 			output = "no current context"
 		} else {
+			if c.ParentId != "" {
+				parentContext, err := ctxClient.GetContext(c.ParentId)
+				if err != nil {
+					fmt.Printf("Error: %v\n", err)
+					os.Exit(1)
+				}
+				fmt.Printf("parent: %s\n", parentContext.Name)
+				fmt.Printf("parentId: %s\n", parentContext.ContextId)
+			}
 			currentTime := time.Now().UTC()
 			startedTime, err := time.Parse(ctxclient.SkDateFormat, c.Created)
 			if err != nil {
@@ -103,6 +112,7 @@ func main() {
 			c, err := ctxClient.ListContexts(ctxclient.QSParams{
 				"start": start,
 				"end":   end,
+				"unit":  unit,
 			})
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
