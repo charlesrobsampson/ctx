@@ -1,0 +1,12 @@
+github.com/charlesrobsampson/2duClient v0.0.0-20230929215804-92b9befb170d h1:oDAJEuEazyyHNag8MVDeqf6ZGvZpbq3FWw69Xzuv+cA=
+github.com/charlesrobsampson/2duClient v0.0.0-20230929215804-92b9befb170d/go.mod h1:G0wcgJINar6GlqBLVO5x+Ze3HZ7w5/43GpVdY1k/ZGs=
+github.com/charlesrobsampson/2duClient v0.0.0-20240216043844-0ac823294a02 h1:9jCIQ2ixKgjp7qm9mH6LC7HUm7rVfQUGKxVmK8SooXo=
+github.com/charlesrobsampson/2duClient v0.0.0-20240216043844-0ac823294a02/go.mod h1:uJkLcdbkNLl9CRkyAqHUhIxTYSj1Sy5aQ0nHsrgrIOc=
+github.com/charlesrobsampson/2duClient v0.0.0-20240216050017-a1203d6a5af4 h1:GhG+ZguOhYXNc+40rYL5t3EsL8zepsRH0rrd9qQK92o=
+github.com/charlesrobsampson/2duClient v0.0.0-20240216050017-a1203d6a5af4/go.mod h1:uJkLcdbkNLl9CRkyAqHUhIxTYSj1Sy5aQ0nHsrgrIOc=
+github.com/charlesrobsampson/2duClient v0.0.0-20240217062619-3c1ee886d948 h1:lEb1edG4aOClxC945+3I7ljp1NbtmEX7BAy9Uhh/Hv0=
+github.com/charlesrobsampson/2duClient v0.0.0-20240217062619-3c1ee886d948/go.mod h1:uJkLcdbkNLl9CRkyAqHUhIxTYSj1Sy5aQ0nHsrgrIOc=
+github.com/charlesrobsampson/2duClient v0.0.0-20240217192852-0b2b61518b23 h1:DT3OmWEicELeX042+hFwN89z2DLZL87NYVgabFkLCv0=
+github.com/charlesrobsampson/2duClient v0.0.0-20240217192852-0b2b61518b23/go.mod h1:uJkLcdbkNLl9CRkyAqHUhIxTYSj1Sy5aQ0nHsrgrIOc=
+github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
+github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
