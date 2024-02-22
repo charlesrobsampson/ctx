@@ -127,6 +127,7 @@ func main() {
 				output = "no last context"
 			}
 		case "summary":
+			fmt.Println("WARNING! This is still in development and doesn't really work yet")
 			unit := getLine(fmt.Sprintf("which time unit would you like to query by (default h)?\noptions: (%s)\n", displayUnits(timeUnits)), false)
 			if unit == "" {
 				unit = "h"
