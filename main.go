@@ -126,6 +126,30 @@ func main() {
 			if output == "{}" {
 				output = "no last context"
 			}
+		case "summary":
+			unit := getLine(fmt.Sprintf("which time unit would you like to query by (default h)?\noptions: (%s)\n", displayUnits(timeUnits)), false)
+			if unit == "" {
+				unit = "h"
+			}
+			start := getLine(fmt.Sprintf("how many %s back would you like to start your query (default 1)? ", timeUnits[unit]), false)
+			end := getLine(fmt.Sprintf("how many %s back would you like to end your query (default 0)? ", timeUnits[unit]), false)
+			_, err := ctxClient.ListFormattedContexts(ctxclient.QSParams{
+				"start": start,
+				"end":   end,
+				"unit":  unit,
+			})
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
+			// output, err = stringifyList(c)
+			// if err != nil {
+			// 	fmt.Printf("Error: %v\n", err)
+			// 	os.Exit(1)
+			// }
+			// if output == "{}" {
+			// 	output = "no last context"
+			// }
 		case "switch":
 			isSubContext := false
 			sameParent := false
