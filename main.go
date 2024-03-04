@@ -31,6 +31,7 @@ func main() {
 	// fmt.Printf("args: %v\n", args)
 	output := ""
 	ctxClient := ctxclient.NewContextClient(HOST, USER)
+	qClient := ctxclient.NewQueueClient(HOST, USER)
 	if len(args) == 0 {
 		// c, err := ctxClient.GetContext("context")
 		c, err := ctxClient.GetCurrentContext()
@@ -239,10 +240,165 @@ func main() {
 				os.Exit(1)
 			}
 			output = response
-		case "h":
-			fmt.Printf("HOST: %s\n", HOST)
-			fmt.Printf("USER: %s\n", USER)
-			output = "history? what should I call this? last? I want all contexts from now-x units to now+y units"
+		case "q":
+			if len(args) == 0 {
+				fmt.Println("queue:")
+				q, err := qClient.ListQueue()
+				if err != nil {
+					fmt.Printf("Error: %v\n", err)
+					os.Exit(1)
+				}
+				output, err = stringifyQueueList(q)
+				if err != nil {
+					fmt.Printf("Error: %v\n", err)
+					os.Exit(1)
+				}
+				if output == "{}" {
+					output = "queue is empty"
+				}
+			} else {
+				cmd := args[0]
+				switch cmd {
+				case "get":
+					args = args[1:]
+					if len(args) == 0 {
+						fmt.Printf("Error: missing queueId\n")
+						os.Exit(1)
+					}
+					qId := args[0]
+					q, err := qClient.GetQueue(qId)
+					if err != nil {
+						fmt.Printf("Error: %v\n", err)
+						os.Exit(1)
+					}
+					output, err = stringifyQueue(q)
+					if err != nil {
+						fmt.Printf("Error: %v\n", err)
+						os.Exit(1)
+					}
+					if output == "{}" {
+						output = fmt.Sprintf("queue '%s' not found", qId)
+					}
+				case "add":
+					fmt.Println("add to queue")
+					q := ctxclient.Queue{}
+					name := getLine("new queue name: ", true)
+					q.Name = name
+					addQueueNotes(&q, "Enter notes for this queue (endline with \\ for multiline): ")
+					addQueue := confirm("add to queue? [Y/n]: ", "y")
+					if addQueue {
+						newQueueId, err := qClient.UpdateQueue(&q)
+						if err != nil {
+							fmt.Printf("Error: %v\n", err)
+							os.Exit(1)
+						}
+						output = fmt.Sprintf("\nadded queue: %s\nwith id: %s\n", q.Name, newQueueId)
+					} else {
+						output = "cancelled"
+					}
+				case "do":
+					c := ctxclient.Context{}
+					args = args[1:]
+					if len(args) == 0 {
+						fmt.Printf("Error: missing queueId\n")
+						os.Exit(1)
+					}
+					qId := args[0]
+					q, err := qClient.GetQueue(qId)
+					if err != nil {
+						fmt.Printf("Error: %v\n", err)
+						os.Exit(1)
+					}
+					if q.Started != "" {
+						fmt.Printf("queue '%s' already started\n", q.Name)
+						if q.ContextId != "" {
+							fmt.Printf("by context: %s\n", q.ContextId)
+						}
+						os.Exit(0)
+					}
+					fmt.Printf("starting queue '%s'\nname: %s\n", qId, q.Name)
+
+					c.Name = fmt.Sprintf("%s | queue", q.Name)
+					parentId := getLine("parentId [optional]: ", false)
+					if len(parentId) > 0 {
+						c.ParentId = parentId
+					}
+					if !isNullJSON(q.Notes) {
+						previous := []string{}
+						err := json.Unmarshal([]byte(q.Notes), &previous)
+						if err != nil {
+							fmt.Printf("Error: %v\n", err)
+							os.Exit(1)
+						}
+						qNoteString, err := json.MarshalIndent(q.Notes, "", "  ")
+						if err != nil {
+							fmt.Printf("Error: %v\n", err)
+							os.Exit(1)
+						}
+						fmt.Printf("notes from queue:\n%s\n", string(qNoteString))
+						combineNotes(&c, previous, "add note (endline with \\ for multiline): ")
+					} else {
+						addNotes(&c, "Enter notes for this context (endline with \\ for multiline): ")
+					}
+					_, err = stringifyContext(&c)
+					if err != nil {
+						fmt.Printf("Error: %v\n", err)
+						os.Exit(1)
+					}
+					output, err = stringifyContext(&c)
+					if err != nil {
+						fmt.Printf("Error: %v\n", err)
+						os.Exit(1)
+					}
+					fmt.Printf("new context:\n%s\n", output)
+					makeSwitch := confirm("make switch? [Y/n]: ", "y")
+					if makeSwitch {
+						newContextId, err := ctxClient.UpdateContext(&c)
+						if err != nil {
+							fmt.Printf("Error: %v\n", err)
+							os.Exit(1)
+						}
+						_, err = qClient.StartQueue(qId, newContextId)
+						if err != nil {
+							fmt.Printf("Error: %v\n", err)
+							os.Exit(1)
+						}
+						output = fmt.Sprintf("\nupdated context: %s\nwith contextId: %s\n", c.Name, newContextId)
+					} else {
+						output = "cancelled"
+					}
+				case "note":
+					args = args[1:]
+					if len(args) == 0 {
+						fmt.Printf("Error: missing queueId\n")
+						os.Exit(1)
+					}
+					qId := args[0]
+					q, err := qClient.GetQueue(qId)
+					if err != nil {
+						fmt.Printf("Error: %v\n", err)
+						os.Exit(1)
+					}
+					if err != nil {
+						fmt.Printf("Error: %v\n", err)
+						os.Exit(1)
+					}
+					addQueueNotes(q, "add note (endline with \\ for multiline): ")
+					_, err = stringifyQueue(q)
+					if err != nil {
+						fmt.Printf("Error: %v\n", err)
+						os.Exit(1)
+					}
+					newQueueId, err := qClient.UpdateQueue(q)
+					if err != nil {
+						fmt.Printf("Error: %v\n", err)
+						os.Exit(1)
+					}
+					output = fmt.Sprintf("added note to '%s'\nwith queueId: %s\n", q.Name, newQueueId)
+				default:
+					output = "unkown q command"
+				}
+			}
 		default:
 			output = "Unknown command"
 		}
@@ -259,6 +415,15 @@ func stringifyContext(c *ctxclient.Context) (string, error) {
 	return string(ctxJson), nil
 }
 
+func stringifyQueue(q *ctxclient.Queue) (string, error) {
+	qJson, err := json.MarshalIndent(q, "", "  ")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return "", err
+	}
+	return string(qJson), nil
+}
+
 func stringifyList(c *[]ctxclient.Context) (string, error) {
 	ctxJson, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
@@ -266,6 +431,15 @@ func stringifyList(c *[]ctxclient.Context) (string, error) {
 		return "", err
 	}
 	return string(ctxJson), nil
+}
+
+func stringifyQueueList(q *[]ctxclient.Queue) (string, error) {
+	qJson, err := json.MarshalIndent(q, "", "  ")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return "", err
+	}
+	return string(qJson), nil
 }
 
 func getLine(prompt string, isRequired bool) string {
@@ -337,6 +511,33 @@ func addNotes(c *ctxclient.Context, prompt string) []byte {
 	}
 	if !isNullJSON(notesJSON) {
 		c.Notes = notesJSON
+	}
+	return notesJSON
+}
+
+func combineNotes(c *ctxclient.Context, previous []string, prompt string) []byte {
+	notes := getMultiLine(prompt)
+	previous = append(previous, notes...)
+	notesJSON, err := json.Marshal(previous)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	if !isNullJSON(notesJSON) {
+		c.Notes = notesJSON
+	}
+	return notesJSON
+}
+
+func addQueueNotes(q *ctxclient.Queue, prompt string) []byte {
+	notes := getMultiLine(prompt)
+	notesJSON, err := json.Marshal(notes)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	if !isNullJSON(notesJSON) {
+		q.Notes = notesJSON
 	}
 	return notesJSON
 }
