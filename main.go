@@ -179,7 +179,6 @@ func main() {
 			c := ctxclient.Context{}
 			name := getLine("new context name: ", true)
 			c.Name = name
-			addNotes(&c, "Enter notes for this context (endline with \\ for multiline): ")
 
 			if isSubContext {
 				c.ParentId = currentContext.ContextId
@@ -191,6 +190,7 @@ func main() {
 					c.ParentId = parentId
 				}
 			}
+			addNotes(&c, "Enter notes for this context (endline with \\ for multiline): ")
 			// fmt.Printf("new context: %+v\n", c)
 			output, err = stringifyContext(&c)
 			if err != nil {
