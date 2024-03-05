@@ -395,6 +395,19 @@ func main() {
 						os.Exit(1)
 					}
 					output = fmt.Sprintf("added note to '%s'\nwith queueId: %s\n", q.Name, newQueueId)
+				case "close":
+					args = args[1:]
+					if len(args) == 0 {
+						fmt.Printf("Error: missing queueId\n")
+						os.Exit(1)
+					}
+					qId := args[0]
+					_, err := qClient.StartQueue(qId, "")
+					if err != nil {
+						fmt.Printf("Error: %v\n", err)
+						os.Exit(1)
+					}
+					output = fmt.Sprintf("queue %s closed", qId)
 				default:
 					output = "unkown q command"
 				}
