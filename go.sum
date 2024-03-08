@@ -4,5 +4,7 @@ github.com/charlesrobsampson/ctxclient v0.0.0-20240226171933-bdc4dd194923 h1:+uH
 github.com/charlesrobsampson/ctxclient v0.0.0-20240226171933-bdc4dd194923/go.mod h1:N1VkmpPf6TaE9lMouSptJSuAmMqVokWwlSP0wozZWwk=
 github.com/charlesrobsampson/ctxclient v0.0.0-20240304182732-0443fca89d40 h1:LiZ1lrNDPU2wX4auuO+oZm2gRv35cSSf4DP0B47wjVM=
 github.com/charlesrobsampson/ctxclient v0.0.0-20240304182732-0443fca89d40/go.mod h1:N1VkmpPf6TaE9lMouSptJSuAmMqVokWwlSP0wozZWwk=
+github.com/charlesrobsampson/ctxclient v0.0.0-20240308163152-923197c519e8 h1:rZ44sO15PBFrrrLYvcZReLUp/bVAmcBcHzGSxUVFJEA=
+github.com/charlesrobsampson/ctxclient v0.0.0-20240308163152-923197c519e8/go.mod h1:N1VkmpPf6TaE9lMouSptJSuAmMqVokWwlSP0wozZWwk=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
