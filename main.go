@@ -2,19 +2,23 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/charlesrobsampson/ctxclient"
 )
 
 var (
-	HOST      = os.Getenv("CTX_HOST")
-	USER      = os.Getenv("CTX_USER")
-	timeUnits = map[string]string{
+	HOST        = os.Getenv("CTX_HOST")
+	USER        = os.Getenv("CTX_USER")
+	EXPORT_TYPE = defaultEnv("CTX_EXPORT_TYPE", "json")
+	timeUnits   = map[string]string{
 		"s": "seconds",
 		"m": "minutes",
 		"h": "hours",
@@ -26,6 +30,14 @@ var (
 )
 
 func main() {
+	if HOST == "" {
+		fmt.Println("CTX_HOST environment variable not set")
+		os.Exit(1)
+	}
+	if USER == "" {
+		fmt.Println("CTX_USER environment variable not set")
+		os.Exit(1)
+	}
 	allArgs := os.Args
 	args := allArgs[1:]
 	// fmt.Printf("args: %v\n", args)
@@ -128,7 +140,6 @@ func main() {
 				output = "no last context"
 			}
 		case "summary":
-			fmt.Println("WARNING! This is still in development")
 			unit := getLine(fmt.Sprintf("which time unit would you like to query by (default h)?\noptions: (%s)\n", displayUnits(timeUnits)), false)
 			if unit == "" {
 				unit = "h"
@@ -145,6 +156,7 @@ func main() {
 				os.Exit(1)
 			}
 			output, err = stringifyFormatted(&ctxs)
+
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
@@ -331,7 +343,8 @@ func main() {
 							fmt.Printf("Error: %v\n", err)
 							os.Exit(1)
 						}
-						qNoteString, err := json.MarshalIndent(q.Notes, "", "  ")
+						qNoteString, err := jsonMarshalIndent(q.Notes, false)
+						// qNoteString, err := json.MarshalIndent(q.Notes, "", "  ")
 						if err != nil {
 							fmt.Printf("Error: %v\n", err)
 							os.Exit(1)
@@ -421,48 +434,86 @@ func main() {
 }
 
 func stringifyContext(c *ctxclient.Context) (string, error) {
-	ctxJson, err := json.MarshalIndent(c, "", "  ")
+	if isNullJSON(c.Notes) {
+		c.Notes = []byte{}
+	}
+	ctxJson, err := jsonMarshalIndent(c, false)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return "", err
 	}
+	if EXPORT_TYPE == "yaml" {
+		return printYaml(ctxJson)
+	}
+	// ctxJson := buffer.Bytes()
 	return string(ctxJson), nil
 }
 
 func stringifyQueue(q *ctxclient.Queue) (string, error) {
-	qJson, err := json.MarshalIndent(q, "", "  ")
+	qJson, err := jsonMarshalIndent(q, false)
+	// qJson, err := json.MarshalIndent(q, "", "  ")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return "", err
+	}
+	if EXPORT_TYPE == "yaml" {
+		return printYaml(qJson)
 	}
 	return string(qJson), nil
 }
 
 func stringifyList(c *[]ctxclient.Context) (string, error) {
-	ctxJson, err := json.MarshalIndent(c, "", "  ")
+	ctxJson, err := jsonMarshalIndent(c, false)
+	// ctxJson, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return "", err
+	}
+	if EXPORT_TYPE == "yaml" {
+		return printYaml(ctxJson)
 	}
 	return string(ctxJson), nil
 }
 
 func stringifyFormatted(c *[]ctxclient.FormattedContext) (string, error) {
-	ctxJson, err := json.MarshalIndent(c, "", "  ")
+	ctxJson, err := jsonMarshalIndent(c, false)
+	// ctxJson, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return "", err
+	}
+	if EXPORT_TYPE == "yaml" {
+		return printYaml(ctxJson)
 	}
 	return string(ctxJson), nil
 }
 
 func stringifyQueueList(q *[]ctxclient.Queue) (string, error) {
-	qJson, err := json.MarshalIndent(q, "", "  ")
+	qJson, err := jsonMarshalIndent(q, false)
+	// qJson, err := json.MarshalIndent(q, "", "  ")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		return "", err
 	}
+	if EXPORT_TYPE == "yaml" {
+		return printYaml(qJson)
+	}
 	return string(qJson), nil
+}
+
+func printYaml(data []byte) (string, error) {
+	var jsonInterface interface{}
+	err := json.Unmarshal(data, &jsonInterface)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return "", err
+	}
+	yamlBytes, err := yaml.Marshal(jsonInterface)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		return "", err
+	}
+	return string(yamlBytes), nil
 }
 
 func getLine(prompt string, isRequired bool) string {
@@ -527,7 +578,8 @@ func confirm(prompt string, def string) bool {
 
 func addNotes(c *ctxclient.Context, prompt string) []byte {
 	notes := getMultiLine(prompt)
-	notesJSON, err := json.Marshal(notes)
+	notesJSON, err := jsonMarshal(notes, false)
+	// notesJSON, err := json.Marshal(notes)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
@@ -541,7 +593,8 @@ func addNotes(c *ctxclient.Context, prompt string) []byte {
 func combineNotes(c *ctxclient.Context, previous []string, prompt string) []byte {
 	notes := getMultiLine(prompt)
 	previous = append(previous, notes...)
-	notesJSON, err := json.Marshal(previous)
+	notesJSON, err := jsonMarshal(previous, false)
+	// notesJSON, err := json.Marshal(previous)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
@@ -554,7 +607,8 @@ func combineNotes(c *ctxclient.Context, previous []string, prompt string) []byte
 
 func addQueueNotes(q *ctxclient.Queue, prompt string) []byte {
 	notes := getMultiLine(prompt)
-	notesJSON, err := json.Marshal(notes)
+	notesJSON, err := jsonMarshal(notes, false)
+	// notesJSON, err := json.Marshal(notes)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
@@ -579,4 +633,28 @@ func displayUnits(units map[string]string) string {
 		list = append(list, fmt.Sprintf("%s [%s]", k, v))
 	}
 	return strings.Join(list, " | ")
+}
+func jsonMarshal(data interface{}, escapeHTML bool) ([]byte, error) {
+	buffer := &bytes.Buffer{}
+	encoder := json.NewEncoder(buffer)
+	encoder.SetEscapeHTML(escapeHTML)
+	err := encoder.Encode(data)
+	return buffer.Bytes(), err
+}
+
+func jsonMarshalIndent(data interface{}, escapeHTML bool) ([]byte, error) {
+	buffer := &bytes.Buffer{}
+	encoder := json.NewEncoder(buffer)
+	encoder.SetEscapeHTML(escapeHTML)
+	encoder.SetIndent("", "  ")
+	err := encoder.Encode(data)
+	return buffer.Bytes(), err
+}
+
+func defaultEnv(envName, defaultValue string) string {
+	val := os.Getenv(envName)
+	if val == "" {
+		val = defaultValue
+	}
+	return val
 }
