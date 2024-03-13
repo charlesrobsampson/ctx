@@ -45,383 +45,45 @@ func main() {
 	ctxClient := ctxclient.NewContextClient(HOST, USER)
 	qClient := ctxclient.NewQueueClient(HOST, USER)
 	if len(args) == 0 {
-		// c, err := ctxClient.GetContext("context")
-		c, err := ctxClient.GetCurrentContext()
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
-
-		output, err = stringifyContext(c)
-		if err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
-		if c.UserId == "" {
-			output = "no current context"
-		} else {
-			if c.ParentId != "" {
-				parentContext, err := ctxClient.GetContext(c.ParentId)
-				if err != nil {
-					fmt.Printf("Error: %v\n", err)
-					os.Exit(1)
-				}
-				fmt.Printf("parent: %s\n", parentContext.Name)
-				fmt.Printf("parentId: %s\n", parentContext.ContextId)
-			}
-			currentTime := time.Now().UTC()
-			startedTime, err := time.Parse(ctxclient.SkDateFormat, c.Created)
-			if err != nil {
-				fmt.Printf("Error parsing start time: %v\n", err)
-				os.Exit(1)
-			}
-			diff := currentTime.Sub(startedTime).Minutes()
-			fmt.Printf("minutes on current context: %d\n", int(diff+0.5))
-		}
+		output = currentCtx(ctxClient)
 	} else {
 		cmd := args[0]
 		args = args[1:]
 		switch cmd {
-		case "get":
-			if len(args) == 0 {
-				fmt.Printf("Error: missing contextId\n")
-				os.Exit(1)
-			}
-			contextId := args[0]
-			c, err := ctxClient.GetContext(contextId)
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-			output, err = stringifyContext(c)
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-			if output == "{}" {
-				output = fmt.Sprintf("context '%s' not found", contextId)
-			}
-		case "last":
-			c, err := ctxClient.GetContext("last")
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-			output, err = stringifyContext(c)
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-			if output == "{}" {
-				output = "no last context"
-			}
-		case "list":
-			unit := getLine(fmt.Sprintf("which time unit would you like to query by (default h)?\noptions: (%s)\n", displayUnits(timeUnits)), false)
-			if unit == "" {
-				unit = "h"
-			}
-			start := getLine(fmt.Sprintf("how many %s back would you like to start your query (default 1)? ", timeUnits[unit]), false)
-			end := getLine(fmt.Sprintf("how many %s back would you like to end your query (default 0)? ", timeUnits[unit]), false)
-			c, err := ctxClient.ListContexts(ctxclient.QSParams{
-				"start": start,
-				"end":   end,
-				"unit":  unit,
-			})
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-			output, err = stringifyList(c)
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-			if output == "{}" {
-				output = "no last context"
-			}
-		case "summary":
-			unit := getLine(fmt.Sprintf("which time unit would you like to query by (default h)?\noptions: (%s)\n", displayUnits(timeUnits)), false)
-			if unit == "" {
-				unit = "h"
-			}
-			start := getLine(fmt.Sprintf("how many %s back would you like to start your query (default 1)? ", timeUnits[unit]), false)
-			end := getLine(fmt.Sprintf("how many %s back would you like to end your query (default 0)? ", timeUnits[unit]), false)
-			ctxs, err := ctxClient.ListFormattedContexts(ctxclient.QSParams{
-				"start": start,
-				"end":   end,
-				"unit":  unit,
-			})
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-			output, err = stringifyFormatted(&ctxs)
-
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Println()
-			// if output == "{}" {
-			// 	output = "no last context"
-			// }
-		case "switch":
-			isSubContext := false
-			sameParent := false
-			if len(args) > 0 {
-				isSubContext = args[0] == "sub"
-				sameParent = args[0] == "same"
-			}
-			currentContext, err := ctxClient.GetCurrentContext()
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-			if currentContext.Name != "" {
-				if currentContext.ParentId != "" {
-					parentContext, err := ctxClient.GetContext(currentContext.ParentId)
-					if err != nil {
-						fmt.Printf("Error: %v\n", err)
-						os.Exit(1)
-					}
-					fmt.Printf("parent: %s\n", parentContext.Name)
-					fmt.Printf("parentId: %s\n", parentContext.ContextId)
-				}
-				fmt.Printf("current: %s\n", currentContext.Name)
-			}
-			c := ctxclient.Context{}
-			name := getLine("new context name: ", true)
-			c.Name = name
-
-			if isSubContext {
-				c.ParentId = currentContext.ContextId
-			} else if sameParent {
-				c.ParentId = currentContext.ParentId
-			} else {
-				parentId := getLine("parentId [optional]: ", false)
-				if len(parentId) > 0 {
-					c.ParentId = parentId
-				}
-			}
-			addNotes(&c, "Enter notes for this context (endline with \\ for multiline): ")
-			// fmt.Printf("new context: %+v\n", c)
-			output, err = stringifyContext(&c)
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Printf("new context:\n%s\n", output)
-			makeSwitch := confirm("make switch? [Y/n]: ", "y")
-			if makeSwitch {
-				newContextId, err := ctxClient.UpdateContext(&c)
-				if err != nil {
-					fmt.Printf("Error: %v\n", err)
-					os.Exit(1)
-				}
-				output = fmt.Sprintf("\nupdated context: %s\nwith contextId: %s\n", c.Name, newContextId)
-			} else {
-				output = "cancelled"
-			}
-		case "note":
-			c, err := ctxClient.GetCurrentContext()
-			c.ContextId = ""
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-			addNotes(c, "add note (endline with \\ for multiline): ")
-			_, err = stringifyContext(c)
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-			newContextId, err := ctxClient.UpdateContext(c)
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-			output = fmt.Sprintf("added note to '%s'\nwith contextId: %s\n", c.Name, newContextId)
-		case "close":
-			contextId := "current"
-			if len(args) > 0 {
-				contextId = args[0]
-			}
-			contextId = getLastHash(contextId)
-			response, err := ctxClient.CloseContext(contextId)
-			if err != nil && response != "no current context" && response != fmt.Sprintf("context 'context#%s' not found", contextId) {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-			output = response
+		case "g", "get":
+			output = getCtx(ctxClient, args)
+		case "l", "last":
+			output = lastCtx(ctxClient)
+		case "ls", "list":
+			output = listCtx(ctxClient)
+		case "sum", "summary":
+			output = summaryCtx(ctxClient)
+		case "s", "switch":
+			output = switchCtx(ctxClient, args)
+		case "-", "sub":
+			output = switchCtx(ctxClient, []string{"sub"})
+		case "=", "same":
+			output = switchCtx(ctxClient, []string{"same"})
+		case "n", "note":
+			output = addNoteCtx(ctxClient)
+		case "c", "close":
+			output = closeCtx(ctxClient, args)
 		case "q":
 			if len(args) == 0 {
-				fmt.Println("queue:")
-				q, err := qClient.ListQueue()
-				if err != nil {
-					fmt.Printf("Error: %v\n", err)
-					os.Exit(1)
-				}
-				output, err = stringifyQueueList(q)
-				if err != nil {
-					fmt.Printf("Error: %v\n", err)
-					os.Exit(1)
-				}
-				if output == "{}" {
-					output = "queue is empty"
-				}
+				output = listQueue(qClient)
 			} else {
 				cmd := args[0]
 				switch cmd {
-				case "get":
-					args = args[1:]
-					if len(args) == 0 {
-						fmt.Printf("Error: missing queueId\n")
-						os.Exit(1)
-					}
-					qId := args[0]
-					q, err := qClient.GetQueue(qId)
-					if err != nil {
-						fmt.Printf("Error: %v\n", err)
-						os.Exit(1)
-					}
-					output, err = stringifyQueue(q)
-					if err != nil {
-						fmt.Printf("Error: %v\n", err)
-						os.Exit(1)
-					}
-					if output == "{}" {
-						output = fmt.Sprintf("queue '%s' not found", qId)
-					}
-				case "add":
-					fmt.Println("add to queue")
-					q := ctxclient.Queue{}
-					name := getLine("new queue name: ", true)
-					q.Name = name
-					addQueueNotes(&q, "Enter notes for this queue (endline with \\ for multiline): ")
-					addQueue := confirm("add to queue? [Y/n]: ", "y")
-					if addQueue {
-						newQueueId, err := qClient.UpdateQueue(&q)
-						if err != nil {
-							fmt.Printf("Error: %v\n", err)
-							os.Exit(1)
-						}
-						output = fmt.Sprintf("\nadded queue: %s\nwith id: %s\n", q.Name, newQueueId)
-					} else {
-						output = "cancelled"
-					}
-				case "do":
-					c := ctxclient.Context{}
-					args = args[1:]
-					if len(args) == 0 {
-						fmt.Printf("Error: missing queueId\n")
-						os.Exit(1)
-					}
-					qId := args[0]
-					q, err := qClient.GetQueue(qId)
-					if err != nil {
-						fmt.Printf("Error: %v\n", err)
-						os.Exit(1)
-					}
-					if q.Started != "" {
-						fmt.Printf("queue '%s' already started\n", q.Name)
-						if q.ContextId != "" {
-							fmt.Printf("by context: %s\n", q.ContextId)
-						}
-						os.Exit(0)
-					}
-					fmt.Printf("starting queue '%s'\nname: %s\n", qId, q.Name)
-
-					c.Name = fmt.Sprintf("%s | queue", q.Name)
-					parentId := getLine("parentId [optional]: ", false)
-					if len(parentId) > 0 {
-						c.ParentId = parentId
-					}
-					if !isNullJSON(q.Notes) {
-						previous := []string{}
-						err := json.Unmarshal([]byte(q.Notes), &previous)
-						if err != nil {
-							fmt.Printf("Error: %v\n", err)
-							os.Exit(1)
-						}
-						qNoteString, err := jsonMarshalIndent(q.Notes, false)
-						// qNoteString, err := json.MarshalIndent(q.Notes, "", "  ")
-						if err != nil {
-							fmt.Printf("Error: %v\n", err)
-							os.Exit(1)
-						}
-						fmt.Printf("notes from queue:\n%s\n", string(qNoteString))
-						combineNotes(&c, previous, "add note (endline with \\ for multiline): ")
-					} else {
-						addNotes(&c, "Enter notes for this context (endline with \\ for multiline): ")
-					}
-					_, err = stringifyContext(&c)
-					if err != nil {
-						fmt.Printf("Error: %v\n", err)
-						os.Exit(1)
-					}
-					output, err = stringifyContext(&c)
-					if err != nil {
-						fmt.Printf("Error: %v\n", err)
-						os.Exit(1)
-					}
-					fmt.Printf("new context:\n%s\n", output)
-					makeSwitch := confirm("make switch? [Y/n]: ", "y")
-					if makeSwitch {
-						newContextId, err := ctxClient.UpdateContext(&c)
-						if err != nil {
-							fmt.Printf("Error: %v\n", err)
-							os.Exit(1)
-						}
-						_, err = qClient.StartQueue(qId, newContextId)
-						if err != nil {
-							fmt.Printf("Error: %v\n", err)
-							os.Exit(1)
-						}
-						output = fmt.Sprintf("\nupdated context: %s\nwith contextId: %s\n", c.Name, newContextId)
-					} else {
-						output = "cancelled"
-					}
-				case "note":
-					args = args[1:]
-					if len(args) == 0 {
-						fmt.Printf("Error: missing queueId\n")
-						os.Exit(1)
-					}
-					qId := args[0]
-					q, err := qClient.GetQueue(qId)
-					if err != nil {
-						fmt.Printf("Error: %v\n", err)
-						os.Exit(1)
-					}
-					if err != nil {
-						fmt.Printf("Error: %v\n", err)
-						os.Exit(1)
-					}
-					addQueueNotes(q, "add note (endline with \\ for multiline): ")
-					_, err = stringifyQueue(q)
-					if err != nil {
-						fmt.Printf("Error: %v\n", err)
-						os.Exit(1)
-					}
-					newQueueId, err := qClient.UpdateQueue(q)
-					if err != nil {
-						fmt.Printf("Error: %v\n", err)
-						os.Exit(1)
-					}
-					output = fmt.Sprintf("added note to '%s'\nwith queueId: %s\n", q.Name, newQueueId)
-				case "close":
-					args = args[1:]
-					if len(args) == 0 {
-						fmt.Printf("Error: missing queueId\n")
-						os.Exit(1)
-					}
-					qId := args[0]
-					_, err := qClient.StartQueue(qId, "")
-					if err != nil {
-						fmt.Printf("Error: %v\n", err)
-						os.Exit(1)
-					}
-					output = fmt.Sprintf("queue %s closed", qId)
+				case "g", "get":
+					output = getQueue(qClient, args)
+				case "a", "add":
+					output = addQueue(qClient)
+				case "d", "do":
+					output = doQueue(qClient, ctxClient, args)
+				case "n", "note":
+					output = addNoteQueue(qClient, args)
+				case "c", "close":
+					output = closeQueue(qClient, args)
 				default:
 					output = "unkown q command"
 				}
@@ -431,6 +93,423 @@ func main() {
 		}
 	}
 	println(output)
+}
+
+func currentCtx(ctxClient *ctxclient.ContextClient) string {
+	output := ""
+	c, err := ctxClient.GetCurrentContext()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	output, err = stringifyContext(c)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	if c.UserId == "" {
+		output = "no current context"
+	} else {
+		if c.ParentId != "" {
+			parentContext, err := ctxClient.GetContext(c.ParentId)
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("parent: %s\n", parentContext.Name)
+			fmt.Printf("parentId: %s\n", parentContext.ContextId)
+		}
+		currentTime := time.Now().UTC()
+		startedTime, err := time.Parse(ctxclient.SkDateFormat, c.Created)
+		if err != nil {
+			fmt.Printf("Error parsing start time: %v\n", err)
+			os.Exit(1)
+		}
+		diff := currentTime.Sub(startedTime).Minutes()
+		fmt.Printf("minutes on current context: %d\n", int(diff+0.5))
+	}
+	return output
+}
+
+func getCtx(ctxClient *ctxclient.ContextClient, args []string) string {
+	output := ""
+	if len(args) == 0 {
+		fmt.Printf("Error: missing contextId\n")
+		os.Exit(1)
+	}
+	contextId := args[0]
+	c, err := ctxClient.GetContext(contextId)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	output, err = stringifyContext(c)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	if output == "{}" {
+		output = fmt.Sprintf("context '%s' not found", contextId)
+	}
+	return output
+}
+
+func lastCtx(ctxClient *ctxclient.ContextClient) string {
+	output := ""
+	c, err := ctxClient.GetContext("last")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	output, err = stringifyContext(c)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	if output == "{}" {
+		output = "no last context"
+	}
+	return output
+}
+
+func listCtx(ctxClient *ctxclient.ContextClient) string {
+	output := ""
+	start, end, unit := getQueryWindow()
+	c, err := ctxClient.ListContexts(ctxclient.QSParams{
+		"start": start,
+		"end":   end,
+		"unit":  unit,
+	})
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	output, err = stringifyList(c)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	if output == "{}" {
+		output = "no last context"
+	}
+	return output
+}
+
+func summaryCtx(ctxClient *ctxclient.ContextClient) string {
+	output := ""
+	start, end, unit := getQueryWindow()
+	ctxs, err := ctxClient.ListFormattedContexts(ctxclient.QSParams{
+		"start": start,
+		"end":   end,
+		"unit":  unit,
+	})
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	output, err = stringifyFormatted(&ctxs)
+
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println()
+	return output
+}
+
+func switchCtx(ctxClient *ctxclient.ContextClient, args []string) string {
+	output := ""
+	isSubContext := false
+	sameParent := false
+	if len(args) > 0 {
+		isSubContext = args[0] == "sub" || args[0] == "-"
+		sameParent = args[0] == "same" || args[0] == "="
+	}
+	currentContext, err := ctxClient.GetCurrentContext()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	if currentContext.Name != "" {
+		if currentContext.ParentId != "" {
+			parentContext, err := ctxClient.GetContext(currentContext.ParentId)
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("parent: %s\n", parentContext.Name)
+			fmt.Printf("parentId: %s\n", parentContext.ContextId)
+		}
+		fmt.Printf("current: %s\n", currentContext.Name)
+	}
+	c := ctxclient.Context{}
+	name := getLine("new context name: ", true)
+	c.Name = name
+
+	if isSubContext {
+		c.ParentId = currentContext.ContextId
+	} else if sameParent {
+		c.ParentId = currentContext.ParentId
+	} else {
+		parentId := getLine("parentId [optional]: ", false)
+		if len(parentId) > 0 {
+			c.ParentId = parentId
+		}
+	}
+	addNotes(&c, "Enter notes for this context (endline with \\ for multiline): ")
+	// fmt.Printf("new context: %+v\n", c)
+	output, err = stringifyContext(&c)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("new context:\n%s\n", output)
+	makeSwitch := confirm("make switch? [Y/n]: ", "y")
+	if makeSwitch {
+		newContextId, err := ctxClient.UpdateContext(&c)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		output = fmt.Sprintf("\nupdated context: %s\nwith contextId: %s\n", c.Name, newContextId)
+	} else {
+		output = "cancelled"
+	}
+	return output
+}
+
+func addNoteCtx(ctxClient *ctxclient.ContextClient) string {
+	output := ""
+	c, err := ctxClient.GetCurrentContext()
+	c.ContextId = ""
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	addNotes(c, "add note (endline with \\ for multiline): ")
+	_, err = stringifyContext(c)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	newContextId, err := ctxClient.UpdateContext(c)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	output = fmt.Sprintf("added note to '%s'\nwith contextId: %s\n", c.Name, newContextId)
+	return output
+}
+
+func closeCtx(ctxClient *ctxclient.ContextClient, args []string) string {
+	contextId := "current"
+	if len(args) > 0 {
+		contextId = args[0]
+	}
+	contextId = getLastHash(contextId)
+	response, err := ctxClient.CloseContext(contextId)
+	if err != nil && response != "no current context" && response != fmt.Sprintf("context 'context#%s' not found", contextId) {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	return response
+}
+
+func listQueue(qClient *ctxclient.QueueClient) string {
+	output := ""
+	fmt.Println("queue:")
+	q, err := qClient.ListQueue()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	output, err = stringifyQueueList(q)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	return output
+}
+
+func getQueue(qClient *ctxclient.QueueClient, args []string) string {
+	output := ""
+	args = args[1:]
+	if len(args) == 0 {
+		fmt.Printf("Error: missing queueId\n")
+		os.Exit(1)
+	}
+	qId := args[0]
+	q, err := qClient.GetQueue(qId)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	output, err = stringifyQueue(q)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	if output == "{}" {
+		output = fmt.Sprintf("queue '%s' not found", qId)
+	}
+	return output
+}
+
+func addQueue(qClient *ctxclient.QueueClient) string {
+	output := ""
+	fmt.Println("add to queue")
+	q := ctxclient.Queue{}
+	name := getLine("new queue name: ", true)
+	q.Name = name
+	addQueueNotes(&q, "Enter notes for this queue (endline with \\ for multiline): ")
+	addQueue := confirm("add to queue? [Y/n]: ", "y")
+	if addQueue {
+		newQueueId, err := qClient.UpdateQueue(&q)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		output = fmt.Sprintf("\nadded queue: %s\nwith id: %s\n", q.Name, newQueueId)
+	} else {
+		output = "cancelled"
+	}
+	return output
+}
+
+func doQueue(qClient *ctxclient.QueueClient, ctxClient *ctxclient.ContextClient, args []string) string {
+	output := ""
+	c := ctxclient.Context{}
+	args = args[1:]
+	if len(args) == 0 {
+		fmt.Printf("Error: missing queueId\n")
+		os.Exit(1)
+	}
+	qId := args[0]
+	q, err := qClient.GetQueue(qId)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	if q.Started != "" {
+		fmt.Printf("queue '%s' already started\n", q.Name)
+		if q.ContextId != "" {
+			fmt.Printf("by context: %s\n", q.ContextId)
+		}
+		os.Exit(0)
+	}
+	fmt.Printf("starting queue '%s'\nname: %s\n", qId, q.Name)
+
+	c.Name = fmt.Sprintf("%s | queue", q.Name)
+	parentId := getLine("parentId [optional]: ", false)
+	if len(parentId) > 0 {
+		c.ParentId = parentId
+	}
+	if !isNullJSON(q.Notes) {
+		previous := []string{}
+		err := json.Unmarshal([]byte(q.Notes), &previous)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		qNoteString, err := jsonMarshalIndent(q.Notes, false)
+		// qNoteString, err := json.MarshalIndent(q.Notes, "", "  ")
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("notes from queue:\n%s\n", string(qNoteString))
+		combineNotes(&c, previous, "add note (endline with \\ for multiline): ")
+	} else {
+		addNotes(&c, "Enter notes for this context (endline with \\ for multiline): ")
+	}
+	_, err = stringifyContext(&c)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	output, err = stringifyContext(&c)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("new context:\n%s\n", output)
+	makeSwitch := confirm("make switch? [Y/n]: ", "y")
+	if makeSwitch {
+		newContextId, err := ctxClient.UpdateContext(&c)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		_, err = qClient.StartQueue(qId, newContextId)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		output = fmt.Sprintf("\nupdated context: %s\nwith contextId: %s\n", c.Name, newContextId)
+	} else {
+		output = "cancelled"
+	}
+	return output
+}
+
+func addNoteQueue(qClient *ctxclient.QueueClient, args []string) string {
+	output := ""
+	args = args[1:]
+	if len(args) == 0 {
+		fmt.Printf("Error: missing queueId\n")
+		os.Exit(1)
+	}
+	qId := args[0]
+	q, err := qClient.GetQueue(qId)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	addQueueNotes(q, "add note (endline with \\ for multiline): ")
+	_, err = stringifyQueue(q)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	newQueueId, err := qClient.UpdateQueue(q)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	output = fmt.Sprintf("added note to '%s'\nwith queueId: %s\n", q.Name, newQueueId)
+	return output
+}
+
+func closeQueue(qClient *ctxclient.QueueClient, args []string) string {
+	output := ""
+	args = args[1:]
+	if len(args) == 0 {
+		fmt.Printf("Error: missing queueId\n")
+		os.Exit(1)
+	}
+	qId := args[0]
+	_, err := qClient.StartQueue(qId, "")
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	output = fmt.Sprintf("queue %s closed", qId)
+	return output
+}
+
+func getQueryWindow() (string, string, string) {
+	unit := getLine(fmt.Sprintf("which time unit would you like to query by (default h)?\noptions: (%s)\n", displayUnits(timeUnits)), false)
+	if unit == "" {
+		unit = "h"
+	}
+	start := getLine(fmt.Sprintf("how many %s back would you like to start your query (default 1)? ", timeUnits[unit]), false)
+	end := getLine(fmt.Sprintf("how many %s back would you like to end your query (default 0)? ", timeUnits[unit]), false)
+	return start, end, unit
 }
 
 func stringifyContext(c *ctxclient.Context) (string, error) {
