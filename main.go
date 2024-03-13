@@ -68,6 +68,8 @@ func main() {
 			output = addNoteCtx(ctxClient)
 		case "c", "close":
 			output = closeCtx(ctxClient, args)
+		case "r", "resume":
+			output = resumeCtx(ctxClient, args)
 		case "q":
 			if len(args) == 0 {
 				output = listQueue(qClient)
@@ -314,6 +316,46 @@ func closeCtx(ctxClient *ctxclient.ContextClient, args []string) string {
 		os.Exit(1)
 	}
 	return response
+}
+
+func resumeCtx(ctxClient *ctxclient.ContextClient, args []string) string {
+	output := ""
+	if len(args) == 0 {
+		fmt.Printf("Error: missing contextId\n")
+		os.Exit(1)
+	}
+	contextId := args[0]
+	c, err := ctxClient.GetContext(contextId)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	c.ContextId = ""
+	output, err = stringifyContext(c)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("resuming context:\n%s\n", output)
+	addNotes(c, "Add notes to this context (endline with \\ for multiline): ")
+	output, err = stringifyContext(c)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("new context:\n%s\n", output)
+	makeSwitch := confirm("make switch? [Y/n]: ", "y")
+	if makeSwitch {
+		newContextId, err := ctxClient.UpdateContext(c)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		output = fmt.Sprintf("\nupdated context: %s\nwith contextId: %s\n", c.Name, newContextId)
+	} else {
+		output = "cancelled"
+	}
+	return output
 }
 
 func listQueue(qClient *ctxclient.QueueClient) string {
