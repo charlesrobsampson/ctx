@@ -41,8 +41,8 @@ There are essentially two different modes for using ctx
 ### Some basic queue commands:
 - `ctx q` - list all items in the queue (anything that has been added but not started/closed)
 - `ctx q add` - add an item to the queue
-- `ctx do <queueId>` - start a queued item (this will become your current context)
-- `ctx get <queueId>` - get details of a queued item (this works for past queues too)
+- `ctx q do <queueId>` - start a queued item (this will become your current context)
+- `ctx q get <queueId>` - get details of a queued item (this works for past queues too)
 - `ctx q note <queueId>` - add a note to a queued item
 - `ctx q close <queueId>` - close a queued item (this will remove it from the queue without changing current context)
 
