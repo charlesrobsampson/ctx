@@ -59,3 +59,8 @@ There are essentially two different modes for using ctx
 I know this isn't the best way to implement a cli in go. This wasn't intended to be published so it's possible I'll update it in the future, but I'm not against anyone who wants to makes improvements/additions getting access to do so. Just hit me up.
 
 I will add features and improvements as I see fit but I would also be happy to collaborate with anyone who wants specific features.
+
+A few things I might add in the future are:
+- `-help` flag for commands
+- ability to filter in the list and summary commands
+- search for contexts based off certain criteria
