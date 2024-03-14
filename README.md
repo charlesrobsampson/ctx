@@ -8,6 +8,7 @@ I liked the idea of it being a cli since a terminal is always within reach but i
 In order to use this tool, you must first deploy the [ctxapi](https://github.com/charlesrobsampson/ctxapi) (or have access to one someone else deployed) and then setup the following environment variables in your bash_prfoile or zshrc or whatever:
 
 `export CTX_HOST="whateverUrlAmazonGaveYou`
+
 `export CTX_USER="honestlyWhateverYouWantButItShouldBeUniqueToTheCtxapiEnv`
 
 You could also add the optional `CTX_EXPORT_TYPE` variable to specify the export format (currently only "yaml" and "json" are supported with json as the default)
