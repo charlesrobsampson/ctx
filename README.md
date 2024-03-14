@@ -25,7 +25,7 @@ There are essentially two different modes for using ctx
 - queue
  - this is a queue for future contexts or essentially a todo list
 
-### Some basic context commands:
+### some basic context commands:
 - `ctx` - shows current context
 - `ctx note` - appends a note to the current context
 - `ctx last` - shows last context
@@ -38,7 +38,7 @@ There are essentially two different modes for using ctx
 - `ctx summary` - get a summary of contexts in a given time window
 - `ctx close` - close current context
 
-### Some basic queue commands:
+### some basic queue commands:
 - `ctx q` - list all items in the queue (anything that has been added but not started/closed)
 - `ctx q add` - add an item to the queue
 - `ctx q do <queueId>` - start a queued item (this will become your current context)
