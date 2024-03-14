@@ -30,8 +30,8 @@ There are essentially two different modes for using ctx
 - `ctx note` - appends a note to the current context
 - `ctx last` - shows last context
 - `ctx switch` - switch context
- - `ctx switch sub` - switch to a new context nested under the current context
- - `ctx switch same` - switch to a new context with the same parent as the current context
+  - `ctx switch sub` - switch to a new context nested under the current context
+  - `ctx switch same` - switch to a new context with the same parent as the current context
 - `ctx resume <contextId>` - continue on a specific context
 - `ctx get <contextId>` - get details of a specific context
 - `ctx list` - list contexts (this will ask you to define a time window to query)
