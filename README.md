@@ -2,7 +2,7 @@
 ## overview
 This is a tool I made to help myself keep track of what I'm doing across different contexts like projects, tasks, notes etc. It aims to be simple, fast and extensible.
 
-I liked the idea of it being a cli since a terminal is always within reach but it could also be expanded to have a simple GUI or web interface down the line. The data is stored in a dynamo db to allow accessing it from anywhere.
+I liked the idea of it being a cli since a terminal is always within reach (I even have the cli installed on [termux](https://termux.dev/en/) on my phone) but it could also be expanded to have a simple GUI or web interface down the line. The data is stored in a dynamo db to allow accessing it from anywhere.
 
 ## setup
 In order to use this tool, you must first deploy the [ctxapi](https://github.com/charlesrobsampson/ctxapi) (or have access to one someone else deployed) and then setup the following environment variables in your bash_prfoile or zshrc or whatever:
@@ -65,3 +65,8 @@ A few things I might add in the future are:
 - `-help` flag for commands
 - ability to filter in the list and summary commands
 - search for contexts based off certain criteria
+- support json in notes
+- the ability to tag contexts or queues to help categorize or search easier
+- export lists and summaries to files
+- take a file of a list of contexts and create a summary
+- ability to edit contexts (change created/completed times in case of late context switch. That sort of thing). You can do this if you just edit in dynamo... but who wants to do that?!
