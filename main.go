@@ -5,7 +5,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,6 +16,8 @@ import (
 
 	"github.com/charlesrobsampson/ctxclient"
 )
+
+const version = "v1.0.0"
 
 var (
 	HOST        = os.Getenv("CTX_HOST")
@@ -50,8 +55,25 @@ func main() {
 		cmd := args[0]
 		args = args[1:]
 		switch cmd {
+		case "v", "version":
+			output = checkVersions(ctxClient, true)
 		case "g", "get":
-			output = getCtx(ctxClient, args)
+			// output = getCtx(ctxClient, args)
+			outputChan := make(chan string)
+			versionCheckChan := make(chan string)
+			go func(outputChan chan string) {
+				output := getCtx(ctxClient, args)
+				outputChan <- output
+			}(outputChan)
+			go func(versionCheckChan chan string) {
+				versionCheck := checkVersions(ctxClient, false)
+				versionCheckChan <- versionCheck
+			}(versionCheckChan)
+			output = <-outputChan
+			versionCheck := <-versionCheckChan
+			if len(versionCheck) > 0 {
+				output += versionCheck
+			}
 		case "l", "last":
 			output = lastCtx(ctxClient)
 		case "ls", "list":
@@ -65,9 +87,39 @@ func main() {
 		case "=", "same":
 			output = switchCtx(ctxClient, []string{"same"})
 		case "n", "note":
-			output = addNoteCtx(ctxClient)
+			// output = addNoteCtx(ctxClient)
+			outputChan := make(chan string)
+			versionCheckChan := make(chan string)
+			go func(outputChan chan string) {
+				output := addNoteCtx(ctxClient)
+				outputChan <- output
+			}(outputChan)
+			go func(versionCheckChan chan string) {
+				versionCheck := checkVersions(ctxClient, false)
+				versionCheckChan <- versionCheck
+			}(versionCheckChan)
+			output = <-outputChan
+			versionCheck := <-versionCheckChan
+			if len(versionCheck) > 0 {
+				output += versionCheck
+			}
 		case "c", "close":
-			output = closeCtx(ctxClient, args)
+			// output = closeCtx(ctxClient, args)
+			outputChan := make(chan string)
+			versionCheckChan := make(chan string)
+			go func(outputChan chan string) {
+				output := closeCtx(ctxClient, args)
+				outputChan <- output
+			}(outputChan)
+			go func(versionCheckChan chan string) {
+				versionCheck := checkVersions(ctxClient, false)
+				versionCheckChan <- versionCheck
+			}(versionCheckChan)
+			output = <-outputChan
+			versionCheck := <-versionCheckChan
+			if len(versionCheck) > 0 {
+				output += versionCheck
+			}
 		case "r", "resume":
 			output = resumeCtx(ctxClient, args)
 		case "q":
@@ -77,7 +129,22 @@ func main() {
 				cmd := args[0]
 				switch cmd {
 				case "g", "get":
-					output = getQueue(qClient, args)
+					// output = getQueue(qClient, args)
+					outputChan := make(chan string)
+					versionCheckChan := make(chan string)
+					go func(outputChan chan string) {
+						output := getQueue(qClient, args)
+						outputChan <- output
+					}(outputChan)
+					go func(versionCheckChan chan string) {
+						versionCheck := checkVersions(ctxClient, false)
+						versionCheckChan <- versionCheck
+					}(versionCheckChan)
+					output = <-outputChan
+					versionCheck := <-versionCheckChan
+					if len(versionCheck) > 0 {
+						output += versionCheck
+					}
 				case "a", "add":
 					output = addQueue(qClient)
 				case "d", "do":
@@ -544,6 +611,38 @@ func closeQueue(qClient *ctxclient.QueueClient, args []string) string {
 	return output
 }
 
+func checkVersions(ctxClient *ctxclient.ContextClient, reportVersion bool) string {
+	output := make(chan string)
+	go func(output chan string) {
+		ctxapiVersion, err := ctxClient.GetVersion()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
+		}
+		latestCtxapi := getLatestRelease("ctxapi")
+		ctxapiOutput := compareVersions("ctxapi", ctxapiVersion, latestCtxapi)
+		if len(ctxapiOutput) > 0 {
+			ctxapiOutput += fmt.Sprintf("pull ctxapi version %s and run\n  npm run deploy-prod\n", latestCtxapi)
+		} else if reportVersion {
+			ctxapiOutput = fmt.Sprintf("\ncurrent ctxapi version %s is up to date\n", ctxapiVersion)
+		}
+		output <- ctxapiOutput
+	}(output)
+
+	go func(output chan string) {
+		latestCtx := getLatestRelease("ctx")
+		ctxOutput := compareVersions("ctx", version, latestCtx)
+		if len(ctxOutput) > 0 {
+			ctxOutput += fmt.Sprintf("install ctx version %s with\n  go install github.com/charlesrobsampson/ctx@%s\nor\n  go install github.com/charlesrobsampson/ctx@latest\n", latestCtx, latestCtx)
+		} else if reportVersion {
+			ctxOutput = fmt.Sprintf("\ncurrent ctx version %s is up to date\n", version)
+		}
+		output <- ctxOutput
+	}(output)
+
+	return <-output + <-output
+}
+
 func getQueryWindow() (string, string, string) {
 	unit := getLine(fmt.Sprintf("which time unit would you like to query by (default h)?\noptions: (%s)\n", displayUnits(timeUnits)), false)
 	if unit == "" {
@@ -778,4 +877,47 @@ func defaultEnv(envName, defaultValue string) string {
 		val = defaultValue
 	}
 	return val
+}
+
+func getLatestRelease(pkg string) string {
+	gitUrl := "https://github.com/charlesrobsampson/" + pkg
+	head, err := http.Head(gitUrl + "/releases/latest")
+	latestUrl := head.Request.URL.String()
+	if err != nil {
+		panic(err)
+	}
+
+	latest := strings.Split(latestUrl, gitUrl+"/releases/tag/")[1]
+	return latest
+}
+
+func compareVersions(pkg, current, latest string) string {
+	splitLatest := strings.Split(latest, ".")
+	splitCurrent := strings.Split(current, ".")
+
+	output := ""
+	if stripNonNumbers(splitLatest[0]) > stripNonNumbers(splitCurrent[0]) {
+		output = fmt.Sprintf("major update available for %s, latest version: %s\n", pkg, latest)
+	} else if stripNonNumbers(splitLatest[0]) == stripNonNumbers(splitCurrent[0]) &&
+		stripNonNumbers(splitLatest[1]) > stripNonNumbers(splitCurrent[1]) {
+		output = fmt.Sprintf("minor update available for %s, latest version: %s\n", pkg, latest)
+	} else if stripNonNumbers(splitLatest[0]) == stripNonNumbers(splitCurrent[0]) &&
+		stripNonNumbers(splitLatest[1]) == stripNonNumbers(splitCurrent[1]) &&
+		stripNonNumbers(splitLatest[2]) > stripNonNumbers(splitCurrent[2]) {
+		output = fmt.Sprintf("patch update available for %s, latest version: %s\n", pkg, latest)
+	}
+	return output
+}
+
+func stripNonNumbers(s string) float64 {
+	re := regexp.MustCompile(`[^0-9]`)
+	str := re.ReplaceAllString(s, "")
+	if len(str) == 0 {
+		return 0
+	}
+	output, err := strconv.ParseFloat(str, 64)
+	if err != nil {
+		panic(err)
+	}
+	return output
 }
