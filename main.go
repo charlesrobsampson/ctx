@@ -20,10 +20,11 @@ import (
 const version = "v1.0.0"
 
 var (
-	HOST        = os.Getenv("CTX_HOST")
-	USER        = os.Getenv("CTX_USER")
-	EXPORT_TYPE = defaultEnv("CTX_EXPORT_TYPE", "json")
-	timeUnits   = map[string]string{
+	HOST               = os.Getenv("CTX_HOST")
+	USER               = os.Getenv("CTX_USER")
+	EXPORT_TYPE        = defaultEnv("CTX_EXPORT_TYPE", "json")
+	CTX_REPORT_UPDATES = defaultEnv("CTX_REPORT_UPDATES", "true")
+	timeUnits          = map[string]string{
 		"s": "seconds",
 		"m": "minutes",
 		"h": "hours",
@@ -612,6 +613,9 @@ func closeQueue(qClient *ctxclient.QueueClient, args []string) string {
 }
 
 func checkVersions(ctxClient *ctxclient.ContextClient, reportVersion bool) string {
+	if CTX_REPORT_UPDATES == "false" && !reportVersion {
+		return ""
+	}
 	output := make(chan string)
 	go func(output chan string) {
 		ctxapiVersion, err := ctxClient.GetVersion()

@@ -6,6 +6,8 @@ github.com/charlesrobsampson/ctxclient v0.0.0-20240304182732-0443fca89d40 h1:LiZ
 github.com/charlesrobsampson/ctxclient v0.0.0-20240304182732-0443fca89d40/go.mod h1:N1VkmpPf6TaE9lMouSptJSuAmMqVokWwlSP0wozZWwk=
 github.com/charlesrobsampson/ctxclient v0.0.0-20240308163152-923197c519e8 h1:rZ44sO15PBFrrrLYvcZReLUp/bVAmcBcHzGSxUVFJEA=
 github.com/charlesrobsampson/ctxclient v0.0.0-20240308163152-923197c519e8/go.mod h1:N1VkmpPf6TaE9lMouSptJSuAmMqVokWwlSP0wozZWwk=
+github.com/charlesrobsampson/ctxclient v0.0.0 h1:y0uH7LuekDUsN2p3gUoThQQWfs5ruiO1B+7OJi7kIyU=
+github.com/charlesrobsampson/ctxclient v0.0.0/go.mod h1:N1VkmpPf6TaE9lMouSptJSuAmMqVokWwlSP0wozZWwk=
 github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

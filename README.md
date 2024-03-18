@@ -11,7 +11,13 @@ In order to use this tool, you must first deploy the [ctxapi](https://github.com
 
 `export CTX_USER="honestlyWhateverYouWantButItShouldBeUniqueToTheCtxapiEnv"`
 
-You could also add the optional `CTX_EXPORT_TYPE` variable to specify the export format (currently only "yaml" and "json" are supported with json as the default)
+### optional env vars:
+- `CTX_EXPORT_TYPE=yaml` - specify export format (default is json)
+  - supported types
+    - json
+    - yaml
+- `CTX_REPORT_UPDATES=false` - opt out of automatic update reports (default is true)
+
 
 This is a go tool so you'll need go installed. Then you can install it with:
 
@@ -28,24 +34,30 @@ There are essentially two different modes for using ctx
 
 ### some basic context commands:
 - `ctx` - shows current context
-- `ctx note` - appends a note to the current context
+- *`ctx note` - appends a note to the current context
 - `ctx last` - shows last context
 - `ctx switch` - switch context
   - `ctx switch sub` - switch to a new context nested under the current context
   - `ctx switch same` - switch to a new context with the same parent as the current context
 - `ctx resume <contextId>` - continue on a specific context
-- `ctx get <contextId>` - get details of a specific context
+- *`ctx get <contextId>` - get details of a specific context
 - `ctx list` - list contexts (this will ask you to define a time window to query)
 - `ctx summary` - get a summary of contexts in a given time window
-- `ctx close` - close current context
+- *`ctx close` - close current context
 
 ### some basic queue commands:
 - `ctx q` - list all items in the queue (anything that has been added but not started/closed)
 - `ctx q add` - add an item to the queue
 - `ctx q do <queueId>` - start a queued item (this will become your current context)
-- `ctx q get <queueId>` - get details of a queued item (this works for past queues too)
+- *`ctx q get <queueId>` - get details of a queued item (this works for past queues too)
 - `ctx q note <queueId>` - add a note to a queued item
 - `ctx q close <queueId>` - close a queued item (this will remove it from the queue without changing current context)
+
+### other
+- `ctx version` - checks for updates and prints current version
+
+#### * note
+commands with an * will also report on available updates unless CTX_REPORT_UPDATES env var is set to false
 
 ***note most commands have a shorthand version, a few examples:
 - switch -> s
