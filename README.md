@@ -82,3 +82,7 @@ A few things I might add in the future are:
 - export lists and summaries to files
 - take a file of a list of contexts and create a summary
 - ability to edit contexts (change created/completed times in case of late context switch. That sort of thing). You can do this if you just edit in dynamo... but who wants to do that?!
+- add tags to switching contexts and adding to the queue to skip the creation steps. For example
+  - `ctx switch --name <newCtxName> --parent <ctxParentId> --notes <notes>`
+  - the name would be required and then any other fields would be optional. If no name tag is added it would just go through the normal setup prompts
+  - sub and same cmds would work in a similar fashion
