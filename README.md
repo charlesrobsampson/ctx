@@ -86,3 +86,4 @@ A few things I might add in the future are:
   - `ctx switch --name <newCtxName> --parent <ctxParentId> --notes <notes>`
   - the name would be required and then any other fields would be optional. If no name tag is added it would just go through the normal setup prompts
   - sub and same cmds would work in a similar fashion
+- local saving to opt out of running the api
