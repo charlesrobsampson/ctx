@@ -46,12 +46,16 @@ func main() {
 	}
 	allArgs := os.Args
 	args := allArgs[1:]
-	// fmt.Printf("args: %v\n", args)
 	output := ""
 	ctxClient := ctxclient.NewContextClient(HOST, USER)
 	qClient := ctxclient.NewQueueClient(HOST, USER)
+	current, err := ctxClient.GetCurrentContext()
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
 	if len(args) == 0 {
-		output = currentCtx(ctxClient)
+		output = currentCtx(ctxClient, current)
 	} else {
 		cmd := args[0]
 		args = args[1:]
@@ -59,7 +63,6 @@ func main() {
 		case "v", "version":
 			output = checkVersions(ctxClient, true)
 		case "g", "get":
-			// output = getCtx(ctxClient, args)
 			outputChan := make(chan string)
 			versionCheckChan := make(chan string)
 			go func(outputChan chan string) {
@@ -82,17 +85,16 @@ func main() {
 		case "sum", "summary":
 			output = summaryCtx(ctxClient)
 		case "s", "switch":
-			output = switchCtx(ctxClient, args)
+			output = switchCtx(ctxClient, current, args)
 		case "-", "sub":
-			output = switchCtx(ctxClient, []string{"sub"})
+			output = switchCtx(ctxClient, current, []string{"sub"})
 		case "=", "same":
-			output = switchCtx(ctxClient, []string{"same"})
+			output = switchCtx(ctxClient, current, []string{"same"})
 		case "n", "note":
-			// output = addNoteCtx(ctxClient)
 			outputChan := make(chan string)
 			versionCheckChan := make(chan string)
 			go func(outputChan chan string) {
-				output := addNoteCtx(ctxClient)
+				output := addNoteCtx(ctxClient, current)
 				outputChan <- output
 			}(outputChan)
 			go func(versionCheckChan chan string) {
@@ -105,7 +107,6 @@ func main() {
 				output += versionCheck
 			}
 		case "c", "close":
-			// output = closeCtx(ctxClient, args)
 			outputChan := make(chan string)
 			versionCheckChan := make(chan string)
 			go func(outputChan chan string) {
@@ -123,6 +124,18 @@ func main() {
 			}
 		case "r", "resume":
 			output = resumeCtx(ctxClient, args)
+		case "tm", "timeMachine":
+			if current.LastContext == "" {
+				output = fmt.Sprintf("current context '%s' has no last context\n", current.Name)
+			} else {
+				timeMachineCtx(ctxClient, current.LastContext)
+			}
+		case "p", "parents":
+			if current.ParentId == "" {
+				output = fmt.Sprintf("current context '%s' has no parent\n", current.Name)
+			} else {
+				parentsCtx(ctxClient, current.ParentId)
+			}
 		case "q":
 			if len(args) == 0 {
 				output = listQueue(qClient)
@@ -130,7 +143,6 @@ func main() {
 				cmd := args[0]
 				switch cmd {
 				case "g", "get":
-					// output = getQueue(qClient, args)
 					outputChan := make(chan string)
 					versionCheckChan := make(chan string)
 					go func(outputChan chan string) {
@@ -165,15 +177,8 @@ func main() {
 	println(output)
 }
 
-func currentCtx(ctxClient *ctxclient.ContextClient) string {
-	output := ""
-	c, err := ctxClient.GetCurrentContext()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	output, err = stringifyContext(c)
+func currentCtx(ctxClient *ctxclient.ContextClient, c *ctxclient.Context) string {
+	output, err := stringifyContext(c)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
@@ -288,18 +293,13 @@ func summaryCtx(ctxClient *ctxclient.ContextClient) string {
 	return output
 }
 
-func switchCtx(ctxClient *ctxclient.ContextClient, args []string) string {
+func switchCtx(ctxClient *ctxclient.ContextClient, currentContext *ctxclient.Context, args []string) string {
 	output := ""
 	isSubContext := false
 	sameParent := false
 	if len(args) > 0 {
 		isSubContext = args[0] == "sub" || args[0] == "-"
 		sameParent = args[0] == "same" || args[0] == "="
-	}
-	currentContext, err := ctxClient.GetCurrentContext()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
 	}
 	if currentContext.Name != "" {
 		if currentContext.ParentId != "" {
@@ -328,8 +328,7 @@ func switchCtx(ctxClient *ctxclient.ContextClient, args []string) string {
 		}
 	}
 	addNotes(&c, "Enter notes for this context (endline with \\ for multiline): ")
-	// fmt.Printf("new context: %+v\n", c)
-	output, err = stringifyContext(&c)
+	output, err := stringifyContext(&c)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
@@ -349,16 +348,11 @@ func switchCtx(ctxClient *ctxclient.ContextClient, args []string) string {
 	return output
 }
 
-func addNoteCtx(ctxClient *ctxclient.ContextClient) string {
+func addNoteCtx(ctxClient *ctxclient.ContextClient, c *ctxclient.Context) string {
 	output := ""
-	c, err := ctxClient.GetCurrentContext()
 	c.ContextId = ""
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
-	}
 	addNotes(c, "add note (endline with \\ for multiline): ")
-	_, err = stringifyContext(c)
+	_, err := stringifyContext(c)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
@@ -424,6 +418,52 @@ func resumeCtx(ctxClient *ctxclient.ContextClient, args []string) string {
 		output = "cancelled"
 	}
 	return output
+}
+
+func timeMachineCtx(ctxClient *ctxclient.ContextClient, ctxID string) {
+	c, err := ctxClient.GetContext(ctxID)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	output, err := stringifyContext(c)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println(output)
+	if c.LastContext != "" {
+		cont := confirm("keep going back in time? [y/N]: ", "n")
+		if cont {
+			fmt.Println("")
+			timeMachineCtx(ctxClient, c.LastContext)
+		}
+	} else {
+		fmt.Println("no more history for this thread")
+	}
+}
+
+func parentsCtx(ctxClient *ctxclient.ContextClient, ctxID string) {
+	c, err := ctxClient.GetContext(ctxID)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	output, err := stringifyContext(c)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println(output)
+	if c.ParentId != "" {
+		cont := confirm("get parent? [y/N]: ", "n")
+		if cont {
+			fmt.Println("")
+			parentsCtx(ctxClient, c.LastContext)
+		}
+	} else {
+		fmt.Println("no more parents for this thread")
+	}
 }
 
 func listQueue(qClient *ctxclient.QueueClient) string {
@@ -762,8 +802,6 @@ func getMultiLine(prompt string) []string {
 		if len(line) == 0 {
 			break
 		}
-		// var r byte = line[len(line)-1]
-		// fmt.Printf("byte: %v\n", r)
 		if line[len(line)-1] != '\\' {
 			if len(line) > 0 {
 				line = strings.TrimSpace(line)
@@ -803,7 +841,6 @@ func confirm(prompt string, def string) bool {
 func addNotes(c *ctxclient.Context, prompt string) []byte {
 	notes := getMultiLine(prompt)
 	notesJSON, err := jsonMarshal(notes, false)
-	// notesJSON, err := json.Marshal(notes)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
@@ -818,7 +855,6 @@ func combineNotes(c *ctxclient.Context, previous []string, prompt string) []byte
 	notes := getMultiLine(prompt)
 	previous = append(previous, notes...)
 	notesJSON, err := jsonMarshal(previous, false)
-	// notesJSON, err := json.Marshal(previous)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
@@ -832,7 +868,6 @@ func combineNotes(c *ctxclient.Context, previous []string, prompt string) []byte
 func addQueueNotes(q *ctxclient.Queue, prompt string) []byte {
 	notes := getMultiLine(prompt)
 	notesJSON, err := jsonMarshal(notes, false)
-	// notesJSON, err := json.Marshal(notes)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
@@ -858,6 +893,7 @@ func displayUnits(units map[string]string) string {
 	}
 	return strings.Join(list, " | ")
 }
+
 func jsonMarshal(data interface{}, escapeHTML bool) ([]byte, error) {
 	buffer := &bytes.Buffer{}
 	encoder := json.NewEncoder(buffer)

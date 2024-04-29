@@ -44,6 +44,8 @@ There are essentially two different modes for using ctx
 - `ctx list` - list contexts (this will ask you to define a time window to query)
 - `ctx summary` - get a summary of contexts in a given time window
 - *`ctx close` - close current context
+- `ctx timeMachine` - get last context and continue going back in time
+- `ctx parents` - get parent of current context and contiune up the tree
 
 ### some basic queue commands:
 - `ctx q` - list all items in the queue (anything that has been added but not started/closed)
@@ -66,6 +68,8 @@ commands with an * will also report on available updates unless CTX_REPORT_UPDAT
 - list -> ls
 - get -> g
 - summary -> sum
+- timeMachine -> tm
+- parents -> p
 
 
 ## future development
