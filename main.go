@@ -17,7 +17,7 @@ import (
 	"github.com/charlesrobsampson/ctxclient"
 )
 
-const version = "v1.1.1"
+const version = "v1.2.0"
 
 var (
 	HOST               = os.Getenv("CTX_HOST")
