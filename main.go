@@ -17,7 +17,7 @@ import (
 	"github.com/charlesrobsampson/ctxclient"
 )
 
-const version = "v1.2.0"
+const version = "v1.2.1"
 
 var (
 	HOST               = os.Getenv("CTX_HOST")
@@ -131,10 +131,14 @@ func main() {
 				timeMachineCtx(ctxClient, current.LastContext)
 			}
 		case "p", "parents":
-			if current.ParentId == "" {
-				output = fmt.Sprintf("current context '%s' has no parent\n", current.Name)
+			if len(args) > 0 {
+				parentsCtx(ctxClient, args[0])
 			} else {
-				parentsCtx(ctxClient, current.ParentId)
+				if current.ParentId == "" {
+					output = fmt.Sprintf("current context '%s' has no parent\n", current.Name)
+				} else {
+					parentsCtx(ctxClient, current.ParentId)
+				}
 			}
 		case "q":
 			if len(args) == 0 {
@@ -459,7 +463,7 @@ func parentsCtx(ctxClient *ctxclient.ContextClient, ctxID string) {
 		cont := confirm("get parent? [y/N]: ", "n")
 		if cont {
 			fmt.Println("")
-			parentsCtx(ctxClient, c.LastContext)
+			parentsCtx(ctxClient, c.ParentId)
 		}
 	} else {
 		fmt.Println("no more parents for this thread")
