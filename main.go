@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,11 +21,14 @@ import (
 const version = "v1.2.1"
 
 var (
-	HOST               = os.Getenv("CTX_HOST")
-	USER               = os.Getenv("CTX_USER")
-	EXPORT_TYPE        = defaultEnv("CTX_EXPORT_TYPE", "json")
-	CTX_REPORT_UPDATES = defaultEnv("CTX_REPORT_UPDATES", "true")
-	timeUnits          = map[string]string{
+	HOST                = os.Getenv("CTX_HOST")
+	USER                = os.Getenv("CTX_USER")
+	CTX_DOCS_PATH       = os.Getenv("CTX_DOCS_PATH")
+	CTX_GITHUB_DOCS_URL = os.Getenv("CTX_GITHUB_DOCS_URL")
+	EXPORT_TYPE         = defaultEnv("CTX_EXPORT_TYPE", "json")
+	CTX_REPORT_UPDATES  = defaultEnv("CTX_REPORT_UPDATES", "true")
+	CTX_DEFAULT_EDITOR  = defaultEnv("CTX_DEFAULT_EDITOR", "code")
+	timeUnits           = map[string]string{
 		"s": "seconds",
 		"m": "minutes",
 		"h": "hours",
@@ -174,6 +178,109 @@ func main() {
 					output = "unkown q command"
 				}
 			}
+		case "d", "doc":
+			if CTX_DOCS_PATH == "" {
+				output = "CTX_DOCS_PATH environment variable not set"
+			} else {
+				cmd := "e"
+				if len(args) > 0 {
+					cmd = args[0]
+					args = args[1:]
+				}
+				dateString := strings.Split(current.ContextId, "T")[0]
+				dateSlice := strings.Split(dateString, "-")
+				year := dateSlice[0]
+				month := dateSlice[1]
+				day := dateSlice[2]
+				dirPath := fmt.Sprintf("ctx/%s/%s/%s", year, month, day)
+				fileName := fmt.Sprintf("%s.md", strings.ReplaceAll(current.Name, " ", "_"))
+				absolutePath := fmt.Sprintf("%s/%s/%s", CTX_DOCS_PATH, dirPath, fileName)
+
+				switch cmd {
+				case "e", "edit":
+					if current.Document.RealtivePath == "" {
+						// create new doc
+						fmt.Println("creating new doc")
+						// first check if file exists
+						_, err := os.Stat(absolutePath)
+						if err != nil {
+							mkdirCmd := exec.Command("mkdir", "-p", fmt.Sprintf("%s/%s", CTX_DOCS_PATH, dirPath))
+							err := mkdirCmd.Run()
+							if err != nil {
+								fmt.Printf("Error: %v\n", err)
+								os.Exit(1)
+							}
+							createCmd := exec.Command("touch", absolutePath)
+							err = createCmd.Run()
+							if err != nil {
+								fmt.Printf("Error: %v\n", err)
+								os.Exit(1)
+							}
+							if current.ParentId != "" {
+								parentDoc, err := findParentDoc(ctxClient, current.ParentId)
+								if err != nil {
+									fmt.Printf("Error: %v\n", err)
+									os.Exit(1)
+								}
+								if parentDoc.RealtivePath != "" {
+									parentString := fmt.Sprintf("[parent doc](%s)\n", parentDoc.RealtivePath)
+									os.WriteFile(absolutePath, []byte(parentString), 0644)
+								}
+							}
+						}
+						current.Document.RealtivePath = fmt.Sprintf("%s/%s", dirPath, fileName)
+						if CTX_GITHUB_DOCS_URL != "" {
+							current.Document.Github = fmt.Sprintf("%s/%s", CTX_GITHUB_DOCS_URL, current.Document.RealtivePath)
+						}
+						_, err = ctxClient.UpdateContext(current)
+						if err != nil {
+							fmt.Printf("Error adding doc to context: %v\n", err)
+							os.Exit(1)
+						}
+					}
+					// edit existing doc
+					output = fmt.Sprintf("opening doc:\n%s", absolutePath)
+					openCmd := exec.Command(CTX_DEFAULT_EDITOR, fmt.Sprintf("%s/%s", CTX_DOCS_PATH, current.Document.RealtivePath))
+					err = openCmd.Run()
+					if err != nil {
+						fmt.Printf("Error: %v\n", err)
+						os.Exit(1)
+					}
+				case "l", "link":
+					output = "not implemented"
+					// link doc to context
+					// if a doc is already linked, prompt to start new ctx
+				case "o", "open":
+					realtivePath := current.Document.RealtivePath
+					// open doc in editor
+					// if none, open closest parent
+					// if no parent, return saying none found and prompt to create new
+					if realtivePath == "" {
+						parentDoc, err := findParentDoc(ctxClient, current.ContextId)
+						if err != nil {
+							fmt.Printf("Error: %v\n", err)
+							os.Exit(1)
+						}
+						if parentDoc.RealtivePath != "" {
+							realtivePath = parentDoc.RealtivePath
+						}
+					}
+					if realtivePath == "" {
+						output = "no related docs found. create one with\nctx doc edit"
+					} else {
+						output = fmt.Sprintf("opening doc: %s", realtivePath)
+						openCmd := exec.Command(CTX_DEFAULT_EDITOR, fmt.Sprintf("%s/%s", CTX_DOCS_PATH, realtivePath))
+						err = openCmd.Run()
+						if err != nil {
+							fmt.Printf("Error: %v\n", err)
+							os.Exit(1)
+						}
+					}
+				default:
+					output = "unkown doc command"
+				}
+			}
+
 		default:
 			output = "Unknown command"
 		}
@@ -964,4 +1071,19 @@ func stripNonNumbers(s string) float64 {
 		panic(err)
 	}
 	return output
+}
+
+func findParentDoc(ctxClient *ctxclient.ContextClient, ctxId string) (ctxclient.Document, error) {
+	doc := ctxclient.Document{}
+	c, err := ctxClient.GetContext(ctxId)
+	if err != nil {
+		return doc, err
+	}
+	if c.Document.RealtivePath != "" {
+		return c.Document, nil
+	}
+	if c.ParentId == "" {
+		return doc, nil
+	}
+	return findParentDoc(ctxClient, c.ParentId)
 }
